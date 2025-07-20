@@ -281,7 +281,7 @@ class JQuantsAPI:
         """業種別空売り比率を取得する
         
         Args:
-            date: 日付 (YYYY-MM-DD形式、省略時は最新)
+            date: 日付 (YYYY-MM-DD形式、省略時は最新の営業日)
         
         Returns:
             業種別空売り比率のリスト
@@ -290,20 +290,40 @@ class JQuantsAPI:
             print("認証が必要です")
             return None
         
-        url = f"{self.BASE_URL}/markets/short_selling"
         headers = {"Authorization": f"Bearer {self.id_token}"}
-        params = {}
         
-        if date:
-            params["date"] = date
+        # 日付が指定されていない場合は最新の営業日を設定
+        if not date:
+            today = datetime.now()
+            # 直近の営業日を取得
+            current_date = today
+            while not is_business_day(current_date):
+                current_date -= timedelta(days=1)
+            date = current_date.strftime('%Y-%m-%d')
         
+        # 必須パラメータを含めてリクエスト
+        params = {"date": date}
+        
+        url = f"{self.BASE_URL}/markets/short_selling"
         try:
             response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            
-            result = response.json()
-            return result.get("short_selling", [])
-            
+            if response.status_code == 200:
+                result = response.json()
+                # 様々なレスポンスキーを試行
+                for key in ["short_selling", "short_selling_by_sector", "sector_short_selling", "data"]:
+                    if key in result:
+                        return result.get(key, [])
+                return result if isinstance(result, list) else []
+            elif response.status_code == 403:
+                print("業種別空売り比率: プランでアクセス制限されています")
+                return None
+            elif response.status_code == 400:
+                print(f"業種別空売り比率: パラメータエラー - {response.text}")
+                return None
+            else:
+                print(f"業種別空売り比率エラー: {response.status_code} - {response.text}")
+                return None
+                
         except requests.exceptions.RequestException as e:
             print(f"業種別空売り比率取得エラー: {e}")
             return None
@@ -536,15 +556,14 @@ def save_short_selling_by_sector_to_csv(short_selling_data: List[Dict], filename
     
     try:
         with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
-            fieldnames = ['Date', 'Sector17Code', 'Sector17CodeName', 'SellVolume', 
-                         'SellValue', 'TotalVolume', 'TotalValue', 'VolumeRatio', 'ValueRatio']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            
-            writer.writeheader()
-            for data in short_selling_data:
-                writer.writerow({
-                    field: data.get(field, 'N/A') for field in fieldnames
-                })
+            # 実際のデータ構造に基づいてフィールド名を動的に決定
+            if short_selling_data:
+                actual_fieldnames = list(short_selling_data[0].keys())
+                writer = csv.DictWriter(f, fieldnames=actual_fieldnames)
+                
+                writer.writeheader()
+                for data in short_selling_data:
+                    writer.writerow(data)
         
         print(f"業種別空売り比率データを {filename} に保存しました")
         return True
@@ -1001,7 +1020,7 @@ def main():
                 short_selling_filename = f"short_selling_by_sector_{timestamp}.csv"
             save_short_selling_by_sector_to_csv(short_selling_data, short_selling_filename)
         else:
-            print("業種別空売り比率の取得に失敗しました")
+            print("業種別空売り比率の取得に失敗しました（スキップして処理を継続します）")
     
     if choice in ["7", "8", "13", "14"]:
         # 空売り残高報告取得
