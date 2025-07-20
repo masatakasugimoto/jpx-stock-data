@@ -164,6 +164,183 @@ class JQuantsAPI:
         except requests.exceptions.RequestException as e:
             print(f"株価データ取得エラー (コード: {code}): {e}")
             return None
+    
+    def get_statements(self, code: Optional[str] = None, date: Optional[str] = None) -> Optional[List[Dict]]:
+        """財務情報を取得する
+        
+        Args:
+            code: 銘柄コード (省略時は全銘柄)
+            date: 決算日 (YYYY-MM-DD形式、省略時は最新)
+        
+        Returns:
+            財務情報のリスト
+        """
+        if not self.id_token:
+            print("認証が必要です")
+            return None
+        
+        url = f"{self.BASE_URL}/fins/statements"
+        headers = {"Authorization": f"Bearer {self.id_token}"}
+        params = {}
+        
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("statements", [])
+            
+        except requests.exceptions.RequestException as e:
+            print(f"財務データ取得エラー: {e}")
+            return None
+    
+    def get_announcement(self, code: Optional[str] = None, from_date: Optional[str] = None, 
+                        to_date: Optional[str] = None) -> Optional[List[Dict]]:
+        """決算発表予定日を取得する
+        
+        Args:
+            code: 銘柄コード (省略時は全銘柄)
+            from_date: 開始日 (YYYY-MM-DD形式)
+            to_date: 終了日 (YYYY-MM-DD形式)
+        
+        Returns:
+            決算発表予定日のリスト
+        """
+        if not self.id_token:
+            print("認証が必要です")
+            return None
+        
+        url = f"{self.BASE_URL}/fins/announcement"
+        headers = {"Authorization": f"Bearer {self.id_token}"}
+        params = {}
+        
+        if code:
+            params["code"] = code
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("announcement", [])
+            
+        except requests.exceptions.RequestException as e:
+            print(f"決算発表予定日取得エラー: {e}")
+            return None
+    
+    def get_margin_balance(self, code: Optional[str] = None, date: Optional[str] = None) -> Optional[List[Dict]]:
+        """信用取引週末残高を取得する
+        
+        Args:
+            code: 銘柄コード (省略時は全銘柄)
+            date: 日付 (YYYY-MM-DD形式、省略時は最新)
+        
+        Returns:
+            信用取引週末残高のリスト
+        """
+        if not self.id_token:
+            print("認証が必要です")
+            return None
+        
+        url = f"{self.BASE_URL}/markets/weekly_margin_interest"
+        headers = {"Authorization": f"Bearer {self.id_token}"}
+        params = {}
+        
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            # 考えられるキー名を試行
+            for key in ["weekly_margin_interest", "margin_interest", "weekly_margin", "margin_balance"]:
+                if key in result:
+                    return result.get(key, [])
+            
+            return result.get("weekly_margin_interest", [])
+            
+        except requests.exceptions.RequestException as e:
+            print(f"信用取引週末残高取得エラー: {e}")
+            return None
+    
+    def get_short_selling_by_sector(self, date: Optional[str] = None) -> Optional[List[Dict]]:
+        """業種別空売り比率を取得する
+        
+        Args:
+            date: 日付 (YYYY-MM-DD形式、省略時は最新)
+        
+        Returns:
+            業種別空売り比率のリスト
+        """
+        if not self.id_token:
+            print("認証が必要です")
+            return None
+        
+        url = f"{self.BASE_URL}/markets/short_selling"
+        headers = {"Authorization": f"Bearer {self.id_token}"}
+        params = {}
+        
+        if date:
+            params["date"] = date
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("short_selling", [])
+            
+        except requests.exceptions.RequestException as e:
+            print(f"業種別空売り比率取得エラー: {e}")
+            return None
+    
+    def get_short_selling_balance(self, code: Optional[str] = None, date: Optional[str] = None) -> Optional[List[Dict]]:
+        """空売り残高報告を取得する
+        
+        Args:
+            code: 銘柄コード (省略時は全銘柄)
+            date: 日付 (YYYY-MM-DD形式、省略時は最新)
+        
+        Returns:
+            空売り残高報告のリスト
+        """
+        if not self.id_token:
+            print("認証が必要です")
+            return None
+        
+        url = f"{self.BASE_URL}/markets/short_selling_positions"
+        headers = {"Authorization": f"Bearer {self.id_token}"}
+        params = {}
+        
+        if code:
+            params["code"] = code
+        if date:
+            params["date"] = date
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("short_selling_positions", [])
+            
+        except requests.exceptions.RequestException as e:
+            print(f"空売り残高報告取得エラー: {e}")
+            return None
 
 
 def format_stock_code(code: str) -> str:
@@ -253,6 +430,156 @@ def save_stock_prices_to_csv(stock_data: List[Dict], filename: str) -> bool:
         
     except Exception as e:
         print(f"株価CSV保存エラー: {e}")
+        return False
+
+
+def save_statements_to_csv(statements_data: List[Dict], filename: str) -> bool:
+    """財務データをCSVファイルに保存する"""
+    if not statements_data:
+        return False
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+            # 財務データの主要フィールド
+            fieldnames = ['Code', 'DisclosedDate', 'DisclosedTime', 'LocalCode', 
+                         'DisclosureNumber', 'TypeOfDocument', 'TypeOfCurrentPeriod',
+                         'CurrentPeriodStartDate', 'CurrentPeriodEndDate', 'CurrentFiscalYearStartDate',
+                         'CurrentFiscalYearEndDate', 'NextFiscalYearStartDate', 'NextFiscalYearEndDate',
+                         'NetSales', 'OperatingProfit', 'OrdinaryProfit', 'Profit',
+                         'EarningsPerShare', 'TotalAssets', 'Equity', 'EquityToAssetRatio',
+                         'BookValuePerShare', 'CashFlowsFromOperatingActivities',
+                         'CashFlowsFromInvestingActivities', 'CashFlowsFromFinancingActivities',
+                         'CashAndEquivalents']
+            
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            writer.writeheader()
+            for statement in statements_data:
+                # 株式コードを4桁形式に変換
+                formatted_statement = statement.copy()
+                formatted_statement['Code'] = format_stock_code(statement.get('Code', 'N/A'))
+                
+                writer.writerow({
+                    field: formatted_statement.get(field, 'N/A') for field in fieldnames
+                })
+        
+        print(f"財務データを {filename} に保存しました")
+        return True
+        
+    except Exception as e:
+        print(f"財務CSV保存エラー: {e}")
+        return False
+
+
+def save_announcements_to_csv(announcements_data: List[Dict], filename: str) -> bool:
+    """決算発表予定日データをCSVファイルに保存する"""
+    if not announcements_data:
+        return False
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+            fieldnames = ['Code', 'Date', 'CompanyName', 'FiscalYear', 'SectorName',
+                         'FiscalQuarter', 'Section']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            writer.writeheader()
+            for announcement in announcements_data:
+                # 株式コードを4桁形式に変換
+                formatted_announcement = announcement.copy()
+                formatted_announcement['Code'] = format_stock_code(announcement.get('Code', 'N/A'))
+                
+                writer.writerow({
+                    field: formatted_announcement.get(field, 'N/A') for field in fieldnames
+                })
+        
+        print(f"決算発表予定日データを {filename} に保存しました")
+        return True
+        
+    except Exception as e:
+        print(f"決算発表予定日CSV保存エラー: {e}")
+        return False
+
+
+def save_margin_balance_to_csv(margin_data: List[Dict], filename: str) -> bool:
+    """信用取引週末残高データをCSVファイルに保存する"""
+    if not margin_data:
+        return False
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+            # 実際のデータ構造に基づいてフィールド名を動的に決定
+            if margin_data:
+                actual_fieldnames = list(margin_data[0].keys())
+                writer = csv.DictWriter(f, fieldnames=actual_fieldnames)
+                
+                writer.writeheader()
+                for margin in margin_data:
+                    # 株式コードを4桁形式に変換（Codeフィールドが存在する場合）
+                    formatted_margin = margin.copy()
+                    if 'Code' in formatted_margin:
+                        formatted_margin['Code'] = format_stock_code(margin.get('Code', 'N/A'))
+                    
+                    writer.writerow(formatted_margin)
+            
+        print(f"信用取引週末残高データを {filename} に保存しました")
+        return True
+        
+    except Exception as e:
+        print(f"信用取引週末残高CSV保存エラー: {e}")
+        return False
+
+
+def save_short_selling_by_sector_to_csv(short_selling_data: List[Dict], filename: str) -> bool:
+    """業種別空売り比率データをCSVファイルに保存する"""
+    if not short_selling_data:
+        return False
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+            fieldnames = ['Date', 'Sector17Code', 'Sector17CodeName', 'SellVolume', 
+                         'SellValue', 'TotalVolume', 'TotalValue', 'VolumeRatio', 'ValueRatio']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            writer.writeheader()
+            for data in short_selling_data:
+                writer.writerow({
+                    field: data.get(field, 'N/A') for field in fieldnames
+                })
+        
+        print(f"業種別空売り比率データを {filename} に保存しました")
+        return True
+        
+    except Exception as e:
+        print(f"業種別空売り比率CSV保存エラー: {e}")
+        return False
+
+
+def save_short_selling_balance_to_csv(balance_data: List[Dict], filename: str) -> bool:
+    """空売り残高報告データをCSVファイルに保存する"""
+    if not balance_data:
+        return False
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+            # 実際のデータ構造に基づいてフィールド名を動的に決定
+            if balance_data:
+                actual_fieldnames = list(balance_data[0].keys())
+                writer = csv.DictWriter(f, fieldnames=actual_fieldnames)
+                
+                writer.writeheader()
+                for balance in balance_data:
+                    # 株式コードを4桁形式に変換（Codeフィールドが存在する場合）
+                    formatted_balance = balance.copy()
+                    if 'Code' in formatted_balance:
+                        formatted_balance['Code'] = format_stock_code(balance.get('Code', 'N/A'))
+                    
+                    writer.writerow(formatted_balance)
+        
+        print(f"空売り残高報告データを {filename} に保存しました")
+        return True
+        
+    except Exception as e:
+        print(f"空売り残高報告CSV保存エラー: {e}")
         return False
 
 
@@ -414,6 +741,29 @@ def get_all_stock_prices(client: 'JQuantsAPI', codes: List[str], days: int = 30)
     return all_quotes
 
 
+def get_days_selection() -> int:
+    """ユーザーから取得日数を選択させる"""
+    print("\n取得する営業日数を選択してください:")
+    print("1. 5営業日")
+    print("2. 30営業日（デフォルト）")
+    print("3. 1年（約250営業日）")
+    print("4. 5年（約1250営業日）")
+    
+    while True:
+        choice = input("選択 (1-4): ").strip()
+        
+        if choice == "1":
+            return 5
+        elif choice == "2":
+            return 30
+        elif choice == "3":
+            return 250  # 1年間の営業日数
+        elif choice == "4":
+            return 1250  # 5年間の営業日数
+        else:
+            print("1-4の範囲で選択してください")
+
+
 def main():
     """メイン処理"""
     print("JPX-jQuants API 株価データ取得ツール")
@@ -440,30 +790,60 @@ def main():
     print("\n実行する処理を選択してください:")
     print("1. 上場銘柄一覧のみ取得")
     print("2. 過去30日分の全銘柄株価データ取得")
-    print("3. 両方実行")
-    print("4. テスト用: 最初の50銘柄のみ株価データ取得")
+    print("3. 財務情報取得")
+    print("4. 決算発表予定日取得")
+    print("5. 信用取引週末残高取得")
+    print("6. 業種別空売り比率取得")
+    print("7. 空売り残高報告取得")
+    print("8. 全データ取得（すべてのデータ）")
+    print("")
+    print("--- テスト用（最初の50銘柄のみ） ---")
+    print("9. テスト用: 株価データのみ")
+    print("10. テスト用: 財務情報のみ") 
+    print("11. テスト用: 決算発表予定日のみ")
+    print("12. テスト用: 信用取引週末残高のみ")
+    print("13. テスト用: 空売り残高報告のみ")
+    print("14. テスト用: 全データ取得")
     
-    choice = input("選択 (1-4): ").strip()
+    choice = input("選択 (1-14): ").strip()
     
-    if choice in ["1", "3"]:
+    # テストモードかどうかを判定
+    is_test_mode = choice in ["9", "10", "11", "12", "13", "14"]
+    test_limit = 50 if is_test_mode else None
+    
+    if choice in ["1", "8", "14"]:
         # 上場銘柄一覧の取得
-        print("\n上場銘柄一覧を取得中...")
+        if is_test_mode:
+            print(f"\nテストモード: 上場銘柄一覧を取得中（最初の{test_limit}件のみ）...")
+        else:
+            print("\n上場銘柄一覧を取得中...")
+        
         listed_stocks = client.get_listed_info()
         
         if not listed_stocks:
             print("銘柄一覧の取得に失敗しました")
         else:
+            # テストモードの場合は最初の50件のみ
+            if is_test_mode:
+                listed_stocks = listed_stocks[:test_limit]
+            
             print(f"{len(listed_stocks)}件の銘柄情報を取得しました")
             
             # テキストファイルとして保存
-            text_filename = f"listed_stocks_{timestamp}.txt"
-            save_to_text_file(listed_stocks, text_filename)
+            if is_test_mode:
+                text_filename = f"listed_stocks_test_{timestamp}.txt"
+                csv_filename = f"listed_stocks_test_{timestamp}.csv"
+            else:
+                text_filename = f"listed_stocks_{timestamp}.txt"
+                csv_filename = f"listed_stocks_{timestamp}.csv"
             
-            # CSVファイルとしても保存
-            csv_filename = f"listed_stocks_{timestamp}.csv"
+            save_to_text_file(listed_stocks, text_filename)
             save_to_csv_file(listed_stocks, csv_filename)
     
-    if choice in ["2", "3", "4"]:
+    if choice in ["2", "8", "9", "14"]:
+        # 取得日数を選択
+        days = get_days_selection()
+        
         # 全銘柄のコード一覧を取得
         stock_codes = get_all_stock_codes(client)
         
@@ -472,28 +852,202 @@ def main():
             sys.exit(1)
         
         # テストモードの場合は最初の50銘柄のみ
-        if choice == "4":
-            stock_codes = stock_codes[:50]
-            print(f"\nテストモード: 最初の{len(stock_codes)}銘柄の過去30営業日分株価データを取得中...")
+        if is_test_mode:
+            stock_codes = stock_codes[:test_limit]
+            print(f"\nテストモード: 最初の{len(stock_codes)}銘柄の過去{days}営業日分株価データを取得中...")
         else:
-            print(f"\n{len(stock_codes)}銘柄の過去30営業日分株価データを取得中...")
+            print(f"\n{len(stock_codes)}銘柄の過去{days}営業日分株価データを取得中...")
             print("※この処理には時間がかかります")
         
         print("※土日祝日は除外されます")
         
-        stock_prices = get_all_stock_prices(client, stock_codes, days=30)
+        stock_prices = get_all_stock_prices(client, stock_codes, days=days)
         
         if stock_prices:
             # 株価データをCSVで保存
-            if choice == "4":
-                stock_prices_filename = f"stock_prices_test_50stocks_{timestamp}.csv"
+            if is_test_mode:
+                stock_prices_filename = f"stock_prices_test_50stocks_{days}days_{timestamp}.csv"
             else:
-                stock_prices_filename = f"stock_prices_30days_{timestamp}.csv"
+                stock_prices_filename = f"stock_prices_{days}days_{timestamp}.csv"
             save_stock_prices_to_csv(stock_prices, stock_prices_filename)
         else:
             print("株価データの取得に失敗しました")
     
-    if choice not in ["1", "2", "3", "4"]:
+    if choice in ["3", "8", "10", "14"]:
+        # 財務情報取得
+        if is_test_mode:
+            # テストモード: 最初の50銘柄の財務情報のみ取得
+            stock_codes = get_all_stock_codes(client)
+            if stock_codes:
+                test_codes = stock_codes[:test_limit]
+                print(f"\nテストモード: 最初の{len(test_codes)}銘柄の財務情報を取得中...")
+                
+                all_statements = []
+                for i, code in enumerate(test_codes, 1):
+                    print(f"進行状況: {i}/{len(test_codes)} - コード: {code}")
+                    if i > 1:
+                        time.sleep(0.1)  # APIレート制限対策
+                    
+                    # 5桁コードでAPI呼び出し
+                    api_code = code + "0" if len(code) == 4 else code
+                    statements = client.get_statements(code=api_code)
+                    
+                    if statements:
+                        for statement in statements:
+                            statement['Code'] = code  # 4桁コードに変換
+                            all_statements.append(statement)
+                
+                if all_statements:
+                    print(f"{len(all_statements)}件の財務情報を取得しました")
+                    statements_filename = f"financial_statements_test_{timestamp}.csv"
+                    save_statements_to_csv(all_statements, statements_filename)
+                else:
+                    print("財務情報の取得に失敗しました")
+            else:
+                print("銘柄コードの取得に失敗しました")
+        else:
+            # 通常モード: 全銘柄の財務情報取得
+            print("\n財務情報を取得中...")
+            statements = client.get_statements()
+            
+            if statements:
+                print(f"{len(statements)}件の財務情報を取得しました")
+                statements_filename = f"financial_statements_{timestamp}.csv"
+                save_statements_to_csv(statements, statements_filename)
+            else:
+                print("財務情報の取得に失敗しました")
+    
+    if choice in ["4", "8", "11", "14"]:
+        # 決算発表予定日取得
+        if is_test_mode:
+            print(f"\nテストモード: 決算発表予定日を取得中（最初の{test_limit}件のみ）...")
+        else:
+            print("\n決算発表予定日を取得中...")
+        
+        # 今後3ヶ月分の決算発表予定を取得
+        today = datetime.now()
+        from_date = today.strftime('%Y-%m-%d')
+        to_date = (today + timedelta(days=90)).strftime('%Y-%m-%d')
+        
+        announcements = client.get_announcement(from_date=from_date, to_date=to_date)
+        
+        if announcements:
+            # テストモードの場合は最初の50件のみ
+            if is_test_mode:
+                announcements = announcements[:test_limit]
+                announcements_filename = f"earnings_announcements_test_{timestamp}.csv"
+            else:
+                announcements_filename = f"earnings_announcements_{timestamp}.csv"
+            
+            print(f"{len(announcements)}件の決算発表予定を取得しました")
+            save_announcements_to_csv(announcements, announcements_filename)
+        else:
+            print("決算発表予定日の取得に失敗しました")
+    
+    if choice in ["5", "8", "12", "14"]:
+        # 信用取引週末残高取得
+        if is_test_mode:
+            # テストモード: 最初の50銘柄の信用取引データのみ取得
+            stock_codes = get_all_stock_codes(client)
+            if stock_codes:
+                test_codes = stock_codes[:test_limit]
+                print(f"\nテストモード: 最初の{len(test_codes)}銘柄の信用取引週末残高を取得中...")
+                
+                all_margin_data = []
+                for i, code in enumerate(test_codes, 1):
+                    print(f"進行状況: {i}/{len(test_codes)} - コード: {code}")
+                    if i > 1:
+                        time.sleep(0.1)  # APIレート制限対策
+                    
+                    # 5桁コードでAPI呼び出し
+                    api_code = code + "0" if len(code) == 4 else code
+                    margin_data = client.get_margin_balance(code=api_code)
+                    
+                    if margin_data:
+                        for data in margin_data:
+                            data['Code'] = code  # 4桁コードに変換
+                            all_margin_data.append(data)
+                
+                if all_margin_data:
+                    print(f"{len(all_margin_data)}件の信用取引週末残高を取得しました")
+                    margin_filename = f"margin_balance_test_{timestamp}.csv"
+                    save_margin_balance_to_csv(all_margin_data, margin_filename)
+                else:
+                    print("信用取引週末残高の取得に失敗しました")
+            else:
+                print("銘柄コードの取得に失敗しました")
+        else:
+            # 通常モード: 全銘柄の信用取引週末残高取得
+            print("\n信用取引週末残高を取得中...")
+            margin_data = client.get_margin_balance()
+            
+            if margin_data:
+                print(f"{len(margin_data)}件の信用取引週末残高を取得しました")
+                margin_filename = f"margin_balance_{timestamp}.csv"
+                save_margin_balance_to_csv(margin_data, margin_filename)
+            else:
+                print("信用取引週末残高の取得に失敗しました")
+    
+    if choice in ["6", "8", "14"]:
+        # 業種別空売り比率取得
+        print("\n業種別空売り比率を取得中...")
+        short_selling_data = client.get_short_selling_by_sector()
+        
+        if short_selling_data:
+            print(f"{len(short_selling_data)}件の業種別空売り比率を取得しました")
+            if is_test_mode:
+                short_selling_filename = f"short_selling_by_sector_test_{timestamp}.csv"
+            else:
+                short_selling_filename = f"short_selling_by_sector_{timestamp}.csv"
+            save_short_selling_by_sector_to_csv(short_selling_data, short_selling_filename)
+        else:
+            print("業種別空売り比率の取得に失敗しました")
+    
+    if choice in ["7", "8", "13", "14"]:
+        # 空売り残高報告取得
+        if is_test_mode:
+            # テストモード: 最初の50銘柄の空売り残高のみ取得
+            stock_codes = get_all_stock_codes(client)
+            if stock_codes:
+                test_codes = stock_codes[:test_limit]
+                print(f"\nテストモード: 最初の{len(test_codes)}銘柄の空売り残高報告を取得中...")
+                
+                all_balance_data = []
+                for i, code in enumerate(test_codes, 1):
+                    print(f"進行状況: {i}/{len(test_codes)} - コード: {code}")
+                    if i > 1:
+                        time.sleep(0.1)  # APIレート制限対策
+                    
+                    # 5桁コードでAPI呼び出し
+                    api_code = code + "0" if len(code) == 4 else code
+                    balance_data = client.get_short_selling_balance(code=api_code)
+                    
+                    if balance_data:
+                        for data in balance_data:
+                            data['Code'] = code  # 4桁コードに変換
+                            all_balance_data.append(data)
+                
+                if all_balance_data:
+                    print(f"{len(all_balance_data)}件の空売り残高報告を取得しました")
+                    balance_filename = f"short_selling_balance_test_{timestamp}.csv"
+                    save_short_selling_balance_to_csv(all_balance_data, balance_filename)
+                else:
+                    print("空売り残高報告の取得に失敗しました")
+            else:
+                print("銘柄コードの取得に失敗しました")
+        else:
+            # 通常モード: 全銘柄の空売り残高報告取得
+            print("\n空売り残高報告を取得中...")
+            balance_data = client.get_short_selling_balance()
+            
+            if balance_data:
+                print(f"{len(balance_data)}件の空売り残高報告を取得しました")
+                balance_filename = f"short_selling_balance_{timestamp}.csv"
+                save_short_selling_balance_to_csv(balance_data, balance_filename)
+            else:
+                print("空売り残高報告の取得に失敗しました")
+    
+    if choice not in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]:
         print("無効な選択です")
         sys.exit(1)
     
